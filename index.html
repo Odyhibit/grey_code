@@ -38,6 +38,7 @@
       <textarea id="input" rows="4" placeholder="Paste data here"></textarea>
     </label>
     <div class="controls buttons">
+      <button onclick="copyOutput()">Copy Output</button>
       <button onclick="encodeGray()">To Gray Code</button>
       <button onclick="decodeGray()">From Gray Code</button>
     </div>
@@ -54,22 +55,8 @@
   <script>
     // Utility functions
     function toBytesFromBase64(s) { try { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); } catch { return null; } }
-    function toBytesFromHex(s) {
-      const clean = s.replace(/[^0-9a-fA-F]/g, ''); if (clean.length % 2) return null;
-      const b = new Uint8Array(clean.length / 2);
-      for (let i = 0; i < clean.length; i += 2) b[i/2] = parseInt(clean.substr(i, 2), 16);
-      return b;
-    }
-    function toBytesFromAscii(s) {
-      const b = new Uint8Array(s.length);
-      for (let i = 0; i < s.length; i++) {
-        const code = s.charCodeAt(i);
-        // Map U+2421 ␡ to 0x7F
-        if (code === 0x2421) b[i] = 0x7F;
-        else b[i] = code & 0xFF;
-      }
-      return b;
-    }
+    function toBytesFromHex(s) { const clean = s.replace(/[^0-9a-fA-F]/g, ''); if (clean.length % 2) return null; const b = new Uint8Array(clean.length/2); for (let i = 0; i < clean.length; i += 2) b[i/2] = parseInt(clean.substr(i, 2), 16); return b; }
+    function toBytesFromAscii(s) { const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) { const code = s.charCodeAt(i); if (code === 0x2421) b[i] = 0x7F; else b[i] = code & 0xFF; } return b; }
     function bytesToBase64(bytes) { let str = ''; bytes.forEach(b => str += String.fromCharCode(b)); return btoa(str); }
     function bytesToHex(bytes) { return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' '); }
     function byteToBin(b) { return b.toString(2).padStart(8, '0'); }
@@ -83,12 +70,23 @@
       if (mode === 'hex')    return toBytesFromHex(input);
       if (mode === 'ascii')  return toBytesFromAscii(input);
       if (mode === 'binary') {
-        const bits = input.replace(/[^01]/g, ''); if (bits.length % 8) return null;
-        const b = new Uint8Array(bits.length / 8);
+        const bits = input.replace(/[^01]/g, '');
+        if (bits.length % 8) return null;
+        const b = new Uint8Array(bits.length/8);
         for (let i = 0; i < bits.length; i += 8) b[i/8] = parseInt(bits.substr(i, 8), 2);
         return b;
       }
       return null;
+    }
+
+    // Copy the re-encoded output (after first ': ') back to input
+    function copyOutput() {
+      const enc = document.getElementById('encodedOut').textContent;
+      const idx = enc.indexOf(': ');
+      if (idx !== -1) {
+        const part = enc.slice(idx + 2).trim();
+        document.getElementById('input').value = part;
+      }
     }
 
     function encodeGray() {
