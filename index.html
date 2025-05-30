@@ -11,9 +11,9 @@
     .controls { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
     .controls label { flex: 1 1 200px; display: flex; flex-direction: column; }
     textarea, input, select { font-family: monospace; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
-    .controls.buttons { justify-content: flex-start; }
-    .controls.buttons button { margin-top: 1rem; }
-    button { font-family: monospace; padding: 0.5rem 1rem; border: none; border-radius: 4px; background: #007bff; color: #fff; cursor: pointer; width: auto; }
+    .controls.buttons { gap: 0.5rem; }
+    .controls.buttons button { margin-top: 1rem; padding: 0.5rem 1rem; width: auto; }
+    button { font-family: monospace; border: none; border-radius: 4px; background: #007bff; color: #fff; cursor: pointer; }
     button:hover { background: #0056b3; }
     .output { margin-top: 2rem; }
     .output h2 { margin-bottom: 0.5rem; font-size: 1.25rem; }
@@ -52,60 +52,79 @@
   </div>
 
   <script>
-    function toBytesFromBase64(s) { try { return Uint8Array.from(atob(s), c=>c.charCodeAt(0)); } catch { return null; } }
+    // Utility functions
+    function toBytesFromBase64(s) { try { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); } catch { return null; } }
     function toBytesFromHex(s) {
-      const clean = s.replace(/[^0-9a-fA-F]/g,''); if(clean.length %2) return null;
-      const b = new Uint8Array(clean.length/2);
-      for(let i=0;i<clean.length;i+=2) b[i/2] = parseInt(clean.substr(i,2),16);
+      const clean = s.replace(/[^0-9a-fA-F]/g, ''); if (clean.length % 2) return null;
+      const b = new Uint8Array(clean.length / 2);
+      for (let i = 0; i < clean.length; i += 2) b[i/2] = parseInt(clean.substr(i, 2), 16);
       return b;
     }
-    function toBytesFromAscii(s) { const b = new Uint8Array(s.length); for(let i=0;i<s.length;i++) b[i] = s.charCodeAt(i)&0xFF; return b; }
-    function bytesToBase64(bytes) { let str=''; bytes.forEach(b=>str+=String.fromCharCode(b)); return btoa(str); }
-    function bytesToHex(bytes) { return Array.from(bytes).map(b=>b.toString(16).padStart(2,'0')).join(' '); }
-    function byteToBin(b) { return b.toString(2).padStart(8,'0'); }
-    function toGray(b) { return b ^ (b>>>1); }
-    function fromGray(g) { let b=0; for(;g;g=g>>>1) b ^= g; return b; }
+    function toBytesFromAscii(s) {
+      const b = new Uint8Array(s.length);
+      for (let i = 0; i < s.length; i++) {
+        const code = s.charCodeAt(i);
+        // Map U+2421 ␡ to 0x7F
+        if (code === 0x2421) b[i] = 0x7F;
+        else b[i] = code & 0xFF;
+      }
+      return b;
+    }
+    function bytesToBase64(bytes) { let str = ''; bytes.forEach(b => str += String.fromCharCode(b)); return btoa(str); }
+    function bytesToHex(bytes) { return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' '); }
+    function byteToBin(b) { return b.toString(2).padStart(8, '0'); }
+    function toGray(b) { return b ^ (b >>> 1); }
+    function fromGray(g) { let b = 0; for (; g; g = g >>> 1) b ^= g; return b; }
 
     function getBytes() {
-      const mode = document.getElementById('mode').value; const input = document.getElementById('input').value.trim();
-      if(mode==='base64') return toBytesFromBase64(input);
-      if(mode==='hex') return toBytesFromHex(input);
-      if(mode==='ascii') return toBytesFromAscii(input);
-      if(mode==='binary') {
-        const bits = input.replace(/[^01]/g,''); if(bits.length%8) return null;
-        const b = new Uint8Array(bits.length/8);
-        for(let i=0;i<bits.length;i+=8) b[i/2]=parseInt(bits.substr(i,8),2);
+      const mode = document.getElementById('mode').value;
+      const input = document.getElementById('input').value.trim();
+      if (mode === 'base64') return toBytesFromBase64(input);
+      if (mode === 'hex')    return toBytesFromHex(input);
+      if (mode === 'ascii')  return toBytesFromAscii(input);
+      if (mode === 'binary') {
+        const bits = input.replace(/[^01]/g, ''); if (bits.length % 8) return null;
+        const b = new Uint8Array(bits.length / 8);
+        for (let i = 0; i < bits.length; i += 8) b[i/8] = parseInt(bits.substr(i, 8), 2);
         return b;
       }
       return null;
     }
 
     function encodeGray() {
-      const bytes = getBytes(); const binOut=document.getElementById('binaryOut'); const encOut=document.getElementById('encodedOut'); const asciiOut=document.getElementById('asciiOut');
-      binOut.textContent=encOut.textContent=asciiOut.textContent='';
-      if(!bytes) { binOut.textContent='Invalid input'; return; }
-      const gray=new Uint8Array(bytes.length); for(let i=0;i<bytes.length;i++) gray[i]=toGray(bytes[i]);
-      binOut.textContent=Array.from(gray).map(byteToBin).join(' ');
-      const mode=document.getElementById('mode').value;
-      if(mode==='base64') encOut.textContent='Base64: '+bytesToBase64(gray);
-      if(mode==='hex') encOut.textContent='Hex: '+bytesToHex(gray);
-      if(mode==='ascii') encOut.textContent='ASCII: '+Array.from(gray).map(b=>b>=32&&b<127?String.fromCharCode(b):'.').join('');
-      if(mode==='binary') encOut.textContent='Binary: '+binOut.textContent;
-      asciiOut.textContent=Array.from(gray).map(b=>b>=32&&b<127?String.fromCharCode(b):'.').join('');
+      const bytes = getBytes();
+      const binOut = document.getElementById('binaryOut');
+      const encOut = document.getElementById('encodedOut');
+      const asciiOut = document.getElementById('asciiOut');
+      binOut.textContent = encOut.textContent = asciiOut.textContent = '';
+      if (!bytes) { binOut.textContent = 'Invalid input'; return; }
+      const gray = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) gray[i] = toGray(bytes[i]);
+      binOut.textContent = Array.from(gray).map(byteToBin).join(' ');
+      const mode = document.getElementById('mode').value;
+      if (mode === 'base64') encOut.textContent = 'Base64: ' + bytesToBase64(gray);
+      if (mode === 'hex')    encOut.textContent = 'Hex: '    + bytesToHex(gray);
+      if (mode === 'ascii')  encOut.textContent = 'ASCII: '  + Array.from(gray).map(b => (b === 0x7F ? '␡' : (b >= 32 && b < 127 ? String.fromCharCode(b) : '.'))).join('');
+      if (mode === 'binary') encOut.textContent = 'Binary: ' + binOut.textContent;
+      asciiOut.textContent = Array.from(gray).map(b => (b === 0x7F ? '␡' : (b >= 32 && b < 127 ? String.fromCharCode(b) : '.'))).join('');
     }
 
     function decodeGray() {
-      const bytes = getBytes(); const binOut=document.getElementById('binaryOut'); const encOut=document.getElementById('encodedOut'); const asciiOut=document.getElementById('asciiOut');
-      binOut.textContent=encOut.textContent=asciiOut.textContent='';
-      if(!bytes) { binOut.textContent='Invalid input'; return; }
-      const decoded=new Uint8Array(bytes.length); for(let i=0;i<bytes.length;i++) decoded[i]=fromGray(bytes[i]);
-      binOut.textContent=Array.from(decoded).map(byteToBin).join(' ');
-      const mode=document.getElementById('mode').value;
-      if(mode==='base64') encOut.textContent='Base64: '+bytesToBase64(decoded);
-      if(mode==='hex') encOut.textContent='Hex: '+bytesToHex(decoded);
-      if(mode==='ascii') encOut.textContent='ASCII: '+Array.from(decoded).map(b=>b>=32&&b<127?String.fromCharCode(b):'.').join('');
-      if(mode==='binary') encOut.textContent='Binary: '+binOut.textContent;
-      asciiOut.textContent=Array.from(decoded).map(b=>b>=32&&b<127?String.fromCharCode(b):'.').join('');
+      const bytes = getBytes();
+      const binOut = document.getElementById('binaryOut');
+      const encOut = document.getElementById('encodedOut');
+      const asciiOut = document.getElementById('asciiOut');
+      binOut.textContent = encOut.textContent = asciiOut.textContent = '';
+      if (!bytes) { binOut.textContent = 'Invalid input'; return; }
+      const decoded = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i++) decoded[i] = fromGray(bytes[i]);
+      binOut.textContent = Array.from(decoded).map(byteToBin).join(' ');
+      const mode = document.getElementById('mode').value;
+      if (mode === 'base64') encOut.textContent = 'Base64: ' + bytesToBase64(decoded);
+      if (mode === 'hex')    encOut.textContent = 'Hex: '    + bytesToHex(decoded);
+      if (mode === 'ascii')  encOut.textContent = 'ASCII: '  + Array.from(decoded).map(b => (b === 0x7F ? '␡' : (b >= 32 && b < 127 ? String.fromCharCode(b) : '.'))).join('');
+      if (mode === 'binary') encOut.textContent = 'Binary: ' + binOut.textContent;
+      asciiOut.textContent = Array.from(decoded).map(b => (b === 0x7F ? '␡' : (b >= 32 && b < 127 ? String.fromCharCode(b) : '.'))).join('');
     }
   </script>
 </body>
